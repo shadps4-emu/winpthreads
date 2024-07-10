@@ -36,7 +36,22 @@ int sched_get_priority_min(int pol) {
 		errno = EINVAL;
 		return -1;
 	}
-	return THREAD_PRIORITY_IDLE;
+
+	switch (pol) {
+	case SCHED_FIFO:
+		return THREAD_PRIORITY_LOWEST;
+	case SCHED_RR:
+		return THREAD_PRIORITY_LOWEST;
+	case SCHED_OTHER:
+		return THREAD_PRIORITY_IDLE;
+	case SCHED_ULE:
+		return THREAD_PRIORITY_LOWEST;
+	case SCHED_4BSD:
+		return THREAD_PRIORITY_LOWEST;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
 }
 
 int sched_get_priority_max(int pol) {
@@ -44,7 +59,22 @@ int sched_get_priority_max(int pol) {
 		errno = EINVAL;
 		return -1;
 	}
-	return THREAD_PRIORITY_TIME_CRITICAL;
+
+	switch (pol) {
+	case SCHED_FIFO:
+		return THREAD_PRIORITY_TIME_CRITICAL;
+	case SCHED_RR:
+		return THREAD_PRIORITY_TIME_CRITICAL;
+	case SCHED_OTHER:
+		return THREAD_PRIORITY_NORMAL;
+	case SCHED_ULE:
+		return THREAD_PRIORITY_TIME_CRITICAL;
+	case SCHED_4BSD:
+		return THREAD_PRIORITY_TIME_CRITICAL;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
 }
 
 int pthread_attr_setschedparam(pthread_attr_t* attr, const struct sched_param* p) {
@@ -141,24 +171,30 @@ int pthread_setschedparam(pthread_t t, int pol, const struct sched_param* p) {
 	if (pol < SCHED_MIN || pol > SCHED_MAX || !p) {
 		return EINVAL;
 	}
-	if (pol != SCHED_OTHER && pol != SCHED_FIFO && pol != SCHED_RR) {
+	switch (pol) {
+	case SCHED_OTHER:
+		pr = THREAD_PRIORITY_NORMAL;
+		break;
+	case SCHED_FIFO:
+	case SCHED_RR:
+		pr = convert_posix_to_windows_priority(p->sched_priority);
+		break;
+	case SCHED_ULE:
+		pr = convert_posix_to_windows_priority(p->sched_priority);
+		break;
+	case SCHED_4BSD:
+		pr = convert_posix_to_windows_priority(p->sched_priority);
+		break;
+	default:
 		return ENOTSUP;
 	}
-	pr = p->sched_priority;
 	if (pr < sched_get_priority_min(pol) || pr > sched_get_priority_max(pol)) {
 		return EINVAL;
 	}
 	pv = __pth_gpointer_locked(t);
 	pv->sched_pol = pol;
 	pv->sched.sched_priority = p->sched_priority;
-	int win_priority;
-	if (pol == SCHED_OTHER) {
-		win_priority = THREAD_PRIORITY_NORMAL;
-	}
-	else if (pol == SCHED_FIFO || pol == SCHED_RR) {
-		win_priority = convert_posix_to_windows_priority(pr);
-	}
-	if (!SetThreadPriority(pv->h, win_priority)) {
+	if (!SetThreadPriority(pv->h, pr)) {
 		errno = EINVAL;
 		return -1;
 	}
