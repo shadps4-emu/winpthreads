@@ -239,8 +239,10 @@ struct _pthread_cleanup
 #define SCHED_OTHER     0
 #define SCHED_FIFO      1
 #define SCHED_RR        2
+#define SCHED_ULE       3
+#define SCHED_4BSD      4
 #define SCHED_MIN       SCHED_OTHER
-#define SCHED_MAX       SCHED_RR
+#define SCHED_MAX       SCHED_4BSD
 
 struct sched_param {
   int sched_priority;
