@@ -75,8 +75,8 @@ SetThreadName_VEH (PEXCEPTION_POINTERS ExceptionInfo)
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
-static PVOID (*AddVectoredExceptionHandlerFuncPtr) (ULONG, PVECTORED_EXCEPTION_HANDLER);
-static ULONG (*RemoveVectoredExceptionHandlerFuncPtr) (PVOID);
+static PVOID (WINAPI *AddVectoredExceptionHandlerFuncPtr) (ULONG, PVECTORED_EXCEPTION_HANDLER);
+static ULONG (WINAPI *RemoveVectoredExceptionHandlerFuncPtr) (PVOID);
 
 static void __attribute__((constructor))
 ctor (void)
@@ -970,7 +970,8 @@ void
 _pthread_cleanup_dest (pthread_t t)
 {
 	_pthread_v *tv;
-	unsigned int i, j;
+	unsigned int j;
+	int i;
 
 	if (!t)
 		return;
@@ -983,7 +984,7 @@ _pthread_cleanup_dest (pthread_t t)
 		int flag = 0;
 
 		pthread_spin_lock (&tv->spin_keys);
-		for (i = 0; i < tv->keymax; i++)
+		for (i = tv->keymax - 1; i >= 0; i--)
 		{
 			void *val = tv->keyval[i];
 
@@ -1877,6 +1878,21 @@ pthread_setname_np (pthread_t thread, const char *name)
 
   tv->thread_name = stored_name;
   SetThreadName (tv->tid, name);
+
+  if (_pthread_set_thread_description != NULL)
+    {
+      size_t required_size = mbstowcs(NULL, name, 0);
+      if (required_size != (size_t)-1)
+        {
+          wchar_t *wname = malloc((required_size + 1) * sizeof(wchar_t));
+          if (wname != NULL)
+            {
+              mbstowcs(wname, name, required_size + 1);
+              _pthread_set_thread_description(tv->h, wname);
+              free(wname);
+            }
+        }
+    }
   return 0;
 }
 
